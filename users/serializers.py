@@ -1,4 +1,4 @@
-from http.client import responses
+# from http.client import responses
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
