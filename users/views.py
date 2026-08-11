@@ -17,6 +17,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from .permissions import IsAuthor
+from .serializers import LoginSerializer
 
 
 
@@ -132,8 +133,15 @@ class UserPhotoStatusView(APIView):
         return Response(response)
 
 
-class LoginView(TokenObtainPairView):
-    serializer_class = LoginSerializer
+
+class LoginView(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 
@@ -192,9 +200,7 @@ class ResetPasswordCodeView(APIView):
     def post(self,request):
         code=self.request.data.get('code')
         user=self.request.user
-        user_code = CodeVerify.objects.filter(code=code, user=user,
-                                              expiration_time__gte=datetime.now(), is_active=True
-                                              )
+        user_code = CodeVerify.objects.filter(code=code, user=user,expiration_time__gte=datetime.now(), is_active=True)
         if not user_code.exists():
             raise ValidationError({
                 'status': status.HTTP_400_BAD_REQUEST,

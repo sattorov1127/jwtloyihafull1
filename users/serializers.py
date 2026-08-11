@@ -46,22 +46,43 @@ class SignUpSerializer(serializers.ModelSerializer):
     # def create(self, validated_data):
     #     return CustomUser.objects.create(**validated_data)
 
+
+
     @staticmethod
-    def auth_validate(data):
-        user_input = data.get('email_or_phone')
+    def auth_validate(user_input):
         user_input_type=check_email_or_phone(user_input)
+
         if user_input_type == 'phone':
             return {
-                'auth_type': VIA_PHONE,
-                'phone': user_input
+                'auth_type':VIA_PHONE,
+                'phone':user_input
             }
         elif user_input_type == 'email':
             return {
-                'auth_type': VIA_EMAIL,
-                'email': user_input
+                'auth_type':VIA_EMAIL,
+                'email':user_input
             }
         else:
-            raise ValidationError("Email yoki Telefon nomeringiz noto‘g‘ri kiritilgan")
+            raise ValidationError("Email yoki telefon notogri kiritilgan")
+
+
+
+    # @staticmethod
+    # def auth_validate(data):
+    #     user_input = data.get('email_or_phone')
+    #     user_input_type=check_email_or_phone(user_input)
+    #     if user_input_type == 'phone':
+    #         return {
+    #             'auth_type': VIA_PHONE,
+    #             'phone': user_input
+    #         }
+    #     elif user_input_type == 'email':
+    #         return {
+    #             'auth_type': VIA_EMAIL,
+    #             'email': user_input
+    #         }
+    #     else:
+    #         raise ValidationError("Email yoki Telefon nomeringiz noto‘g‘ri kiritilgan")
 
 
     def validate_email_or_phone(self,email_or_phone):
@@ -146,13 +167,61 @@ class UserChangeInfoSerializer(serializers.Serializer):
         instance.first_name=validated_data.get('first_name')
         instance.last_name=validated_data.get('last_name')
         instance.username=validated_data.get('username')
-        instance.password.set_password(validated_data.get('password'))
+        instance.set_password(validated_data.get('password'))
         if instance.auth_status != CODE_VERIFY:
             raise ValidationError({"message":"siz hali tasdiqlanmagansiz","status":status.HTTP_400_BAD_REQUEST})
         instance.auth_status=DONE
         instance.save()
         return instance
 
+
+
+class LoginSerializer(serializers.Serializer):
+    user_input = serializers.CharField(required=True)
+    password = serializers.CharField(required=True, write_only=True)
+
+    def validate(self, attrs):
+        user_input = attrs.get('user_input')
+        password = attrs.get('password')
+
+        user = self.check_user_type(user_input, password)
+
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            'status': status.HTTP_200_OK,
+            'message': 'siz tizimga kirdingiz',
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        }
+
+    def check_user_type(self, user_input, password):
+        from .models import CustomUser
+
+        # username
+        user = CustomUser.objects.filter(username=user_input).first()
+
+        # email
+        if not user:
+            user = CustomUser.objects.filter(email=user_input.lower()).first()
+
+        # phone
+        if not user:
+            user = CustomUser.objects.filter(phone_number=user_input).first()
+
+        if not user:
+            raise serializers.ValidationError("Foydalanuvchi topilmadi")
+
+        if user.auth_status not in [DONE, PHOTO_DONE]:
+            raise serializers.ValidationError("Siz hali toliq royxatdan otmagansiz")
+
+        # authenticate
+        user = authenticate(username=user.username, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Parol noto‘g‘ri")
+
+        return user
 
 
 class UserPhotoStatusSerializer(serializers.Serializer):
@@ -166,68 +235,69 @@ class UserPhotoStatusSerializer(serializers.Serializer):
             instance.auth_status=PHOTO_DONE
         instance.save()
         return instance
+#
+#
+#
+# class LoginSerializer(TokenObtainPairSerializer):
+#     password=serializers.CharField(required=True,write_only=True)
+#
+#     def __init__(self,*args,**kwargs):
+#         super().__init__(*args,**kwargs)
+#         self.fields['user_input']=serializers.CharField(required=True,write_only=True)
+#         self.fields['username']=serializers.CharField(read_only=True)
+#
+#
+#     def validate(self,attrs):
+#         user=self.check_user_type(attrs)
+#         response_data={
+#             'status':status.HTTP_200_OK,
+#             'message':'siz tizimga kirdingiz',
+#             'access':user.token()['access'],
+#             'refresh':user.token()['refresh']
+#         }
+#         return response_data
+#
+#
+#     def check_user_type(self,data):
+#         password=data.get('password')
+#         user_input_data=data.get('user_input')
+#         user_type=check_email_or_phone_or_username(user_input_data)
+#         if user_type=='username':
+#             user=CustomUser.objects.filter(username=user_input_data).first()
+#             self.get_object(user)
+#             username=user_input_data
+#         elif user_type=="email":
+#             user=CustomUser.objects.filter(email__icontains=user_input_data.lower()).first()
+#             self.get_object(user)
+#             username=user.username
+#         elif user_type=="phone":
+#             user=CustomUser.objects.filter(phone_number=user_input_data).first()
+#             self.get_object(user)
+#             username=user.username
+#         else:
+#             raise ValidationError(detail='malumot topilmadi')
+#
+#         authentication_kwargs = {
+#             "password": password,
+#             self.username_field: username
+#         }
+#
+#         if user.auth_status not in [DONE,PHOTO_DONE]:
+#             raise ValidationError(detail="siz hali toliq royxatdan otmagansiz")
+#
+#         user=authenticate(**authentication_kwargs)
+#
+#         if not user:
+#             raise ValidationError('parol xato')
+#         return user
+#
+#
+#
+#     def get_object(self,user):
+#         if not user:
+#             raise ValidationError({"message":'xato malumot kiritdingiz','status':status.HTTP_400_BAD_REQUEST})
+#         return True
 
-
-
-class LoginSerializer(TokenObtainPairSerializer):
-    password=serializers.CharField(required=True,write_only=True)
-
-    def __init__(self,*args,**kwargs):
-        super().__init__(*args,**kwargs)
-        self.fields['user_input']=serializers.CharField(required=True,write_only=True)
-        self.fields['username']=serializers.CharField(read_only=True)
-
-
-    def validate(self,attrs):
-        user=self.check_user_type(attrs)
-        response_data={
-            'status':status.HTTP_200_OK,
-            'message':'siz tizimga kirdingiz',
-            'access':user.token()['access'],
-            'refresh':user.token()['refresh']
-        }
-        return response_data
-
-
-    def check_user_type(self,data):
-        password=data.get('password')
-        user_input_data=data.get('user_input')
-        user_type=check_email_or_phone_or_username(data.get(user_input_data))
-        if user_type=='username':
-            user=CustomUser.objects.filter(username=user_input_data).first()
-            self.get_object(user)
-            username=user_input_data
-        elif user_type=="email":
-            user=CustomUser.objects.filter(email__icontains=user_input_data.lower()).first()
-            self.get_object(user)
-            username=user.username
-        elif user_type=="phone":
-            user=CustomUser.objects.filter(phone_number=user_input_data).first()
-            self.get_object(user)
-            username=user.username
-        else:
-            raise ValidationError(detail='malumot topilmadi')
-
-        authentication_kwargs = {
-            "password": password,
-            self.username_field: username
-        }
-
-        if user.auth_status not in [DONE,PHOTO_DONE]:
-            raise ValidationError(detail="siz hali toliq royxatdan otmagansiz")
-
-        user=authenticate(**authentication_kwargs)
-
-        if not user:
-            raise ValidationError('parol xato')
-        return user
-
-
-
-    def get_object(self,user):
-        if not user:
-            raise ValidationError({"message":'xato malumot kiritdingiz','status':status.HTTP_400_BAD_REQUEST})
-        return True
 
 class ForgotPasswordSerializers(serializers.Serializer):
     user_input=serializers.CharField(required=True,write_only=True)

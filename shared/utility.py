@@ -15,15 +15,13 @@ def check_email_or_phone(user_input):
     if re.fullmatch(phone_regex,user_input):
         return 'phone'
     elif re.fullmatch(email_regex,user_input):
-        data='email'
+        return 'email'
     else:
         response={
             'status':status.HTTP_400_BAD_REQUEST,
             'message':'Email yoki Telefon nomeringiz notogri kiritilgan'
         }
         raise ValidationError(response)
-    return data
-
 
 
 
@@ -31,7 +29,7 @@ def check_email_or_phone_or_username(user_input):
     if re.fullmatch(phone_regex,user_input):
         return 'phone'
     elif re.fullmatch(email_regex,user_input):
-        data='email'
+        return 'email'
     elif re.fullmatch(username_regex,user_input):
         return 'username'
     else:
@@ -40,4 +38,3 @@ def check_email_or_phone_or_username(user_input):
             'message':'Login  notogri kiritilgan'
         }
         raise ValidationError(response)
-    return data

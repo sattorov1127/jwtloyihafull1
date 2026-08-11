@@ -12,7 +12,7 @@ import string
 import secrets
 from django.utils import timezone
 
-
+ 
 ORDINARY_USER,ADMIN,MANAGER=('ordinary_user','admin','manager')
 NEW,CODE_VERIFY,DONE,PHOTO_DONE=('new','code_verify','done','photo_done')
 VIA_EMAIL,VIA_PHONE=('via_email','via_phone')
@@ -117,10 +117,6 @@ class CustomUser(AbstractUser,BaseModel):
 
 
 
-
-
-
-
 class CodeVerify(BaseModel):
     VERIFY_TYPE = (
         (VIA_EMAIL, VIA_EMAIL),
@@ -161,7 +157,6 @@ class PostLike(models.Model):
 
     class Meta:
         unique_together=('post','auth')
-
 
 
 class Comment(models.Model):
